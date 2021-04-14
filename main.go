@@ -82,6 +82,11 @@ func Main(config *Config, configTest bool, buildVersion string, logger *logrus.L
 		}
 	}
 
+	psk, err := NewPskFromConfig(config, ip2int(tunCidr.IP))
+	if err != nil {
+		return nil, NewContextualError("Failed to create psk", nil, err)
+	}
+
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	// All non system modifying configuration consumption should live above this line
 	// tun config, listeners, anything modifying the computer should be below
@@ -336,10 +341,6 @@ func Main(config *Config, configTest bool, buildVersion string, logger *logrus.L
 	handshakeManager := NewHandshakeManager(l, tunCidr, preferredRanges, hostMap, lightHouse, udpConns[0], handshakeConfig)
 	lightHouse.handshakeTrigger = handshakeManager.trigger
 
-	//TODO: These will be reused for psk
-	//handshakeMACKey := config.GetString("handshake_mac.key", "")
-	//handshakeAcceptedMACKeys := config.GetStringSlice("handshake_mac.accepted_keys", []string{})
-
 	serveDns := config.GetBool("lighthouse.serve_dns", false)
 	checkInterval := config.GetInt("timers.connection_alive_interval", 5)
 	pendingDeletionInterval := config.GetInt("timers.pending_deletion_interval", 10)
@@ -362,6 +363,7 @@ func Main(config *Config, configTest bool, buildVersion string, logger *logrus.L
 		MessageMetrics:          messageMetrics,
 		version:                 buildVersion,
 		caPool:                  caPool,
+		psk:                     psk,
 
 		ConntrackCacheTimeout: conntrackCacheTimeout,
 		l:                     l,
