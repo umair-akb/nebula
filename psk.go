@@ -22,8 +22,10 @@ func (p PskMode) String() string {
 	switch p {
 	case PskNone:
 		return "none"
-	case PskTransitional:
-		return "transitional"
+	case PskTransitionalAccepting:
+		return "transitional-accepting"
+	case PskTransitionalSending:
+		return "transitional-sending"
 	case PskEnforced:
 		return "enforced"
 	}
@@ -35,8 +37,10 @@ func NewPskMode(m string) (PskMode, error) {
 	switch m {
 	case "none":
 		return PskNone, nil
-	case "transitional":
-		return PskTransitional, nil
+	case "transitional-accepting":
+		return PskTransitionalAccepting, nil
+	case "transitional-sending":
+		return PskTransitionalSending, nil
 	case "enforced":
 		return PskEnforced, nil
 	}
@@ -44,9 +48,10 @@ func NewPskMode(m string) (PskMode, error) {
 }
 
 const (
-	PskNone         PskMode = 0
-	PskTransitional PskMode = 1
-	PskEnforced     PskMode = 2
+	PskNone                  PskMode = 0
+	PskTransitionalAccepting PskMode = 1
+	PskTransitionalSending   PskMode = 2
+	PskEnforced              PskMode = 3
 )
 
 type Psk struct {
@@ -100,7 +105,7 @@ func NewPsk(mode PskMode, keys []string, myVpnIp uint32) (*Psk, error) {
 // mixing in the intended recipients vpn ip and the result is returned.
 // If we are transitional or not using psks, an empty byte slice is returned
 func (p *Psk) MakeFor(vpnIp uint32) ([]byte, error) {
-	if p.mode != PskEnforced {
+	if p.mode == PskNone || p.mode == PskTransitionalAccepting {
 		return []byte{}, nil
 	}
 
@@ -127,7 +132,7 @@ func (p *Psk) cachePsks(myVpnIp uint32, keys []string) error {
 
 	p.Cache = [][]byte{}
 
-	if p.mode == PskTransitional {
+	if p.mode == PskTransitionalAccepting || p.mode == PskTransitionalSending {
 		// We are transitional, we accept empty psks
 		p.Cache = append(p.Cache, nil)
 	}
@@ -148,7 +153,7 @@ func (p *Psk) cachePsks(myVpnIp uint32, keys []string) error {
 // preparePrimaryKey if we are in enforced mode, will do an hkdf extract on the first key to benefit
 // outgoing handshake performance, MakeFor does the final expand step
 func (p *Psk) preparePrimaryKey(keys []string) error {
-	if p.mode != PskEnforced {
+	if p.mode == PskNone || p.mode == PskTransitionalAccepting {
 		// If we aren't enforcing then there is nothing to prepare
 		return nil
 	}
